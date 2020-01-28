@@ -15,14 +15,14 @@ from skimage import io, transform
 import numpy as np
 import matplotlib.pyplot as plt 
 from torch.utils.data import Dataset, DataLoader
-# from torchvision import transforms, utils
+from torchvision import transforms, utils
 
 class DRDataset(Dataset):
     '''
     Data loader for the DR dataset
     '''
     
-    def __init__(self, csv_file, root_dir):
+    def __init__(self, csv_file, root_dir, transform = None):
         '''
         
 
@@ -52,7 +52,7 @@ class DRDataset(Dataset):
         '''
         return len(self.image_ids)
     
-    def __getitem__(self, idx, transform = None):
+    def __getitem__(self, idx):
         '''
         
 
@@ -80,8 +80,8 @@ class DRDataset(Dataset):
         # preapre sample return
         sample = {'image': image, 'diagnosis': diagnosis}
         
-        # if self.transform:
-        #     sample = self.transform(sample)
+        if self.transform:
+            sample = self.transform(sample)
         
         return sample
     
@@ -128,7 +128,37 @@ class ToTensor(object):
         image = image.transpose((2, 0, 1))
         return {'image': torch.from_numpy(image), 'diagnosis': diagnosis}
 
-def display(image):
+class RandomCrop(object):
+    """Crop randomly the image in a sample.
+
+    Args:
+        output_size (tuple or int): Desired output size. If int, square crop
+            is made.
+    """
+
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+    def __call__(self, sample):
+        image, diagnosis = sample['image'], sample['diagnosis']
+
+        h, w = image.shape[:2]
+        new_h, new_w = self.output_size
+
+        top = np.random.randint(0, h - new_h)
+        left = np.random.randint(0, w - new_w)
+
+        image = image[top: top + new_h,
+                      left: left + new_w]
+
+        return {'image': image, 'diagnosis': diagnosis}
+
+def display(sample_batched):
     '''
 
     Parameters
@@ -141,28 +171,51 @@ def display(image):
     None.
 
     '''
-    plt.imshow(image[...,1], cmap = 'gray')
+    images_batch = sample_batched['image']
+    grid = utils.make_grid(images_batch)
+    plt.imshow(grid.numpy().transpose((1, 2, 0)))
+    
+    plt.title('Batch from dataloader')
     
 def main():
     
-    DR_dataset = DRDataset(csv_file='/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Images/train.csv', root_dir='/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Images')
+    csv_file='/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Images/train.csv'
+    root_dir='/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Images'
+    composed = transforms.Compose([ Rescale(256), RandomCrop(224), ToTensor()])
     
-    # apply rescale transform
-    #scale = Rescale(256)
+    DR_dataset = DRDataset(csv_file, root_dir, composed)
     
-    fig = plt.figure()
-    for i in range(len(DR_dataset)):
-        sample = DR_dataset[i]
-        print(i, sample['image'].shape, sample['diagnosis'])
-        ax = plt.subplot(1, 4, i + 1)
-        plt.tight_layout()
-        ax.set_title('Sample #{}'.format(i))
-        ax.axis('off')
-        display(sample['image'])
-        
-        if i == 3:
+    dataloader = DataLoader(DR_dataset, batch_size=2, shuffle=True, num_workers=4)  
+    
+    for i_batch, sample_batched in enumerate(dataloader):
+        print(i_batch, sample_batched['image'].size())
+
+        # observe 4th batch and stop.
+        if i_batch == 3:
+            plt.figure()
+            display(sample_batched)
+            plt.axis('off')
+            plt.ioff()
             plt.show()
             break
+    
+    
+    
+# =============================================================================
+#     
+#     for i in range(len(DR_dataset)):
+#         sample = DR_dataset[i]
+#         print(i, sample['image'].shape, sample['diagnosis'])
+#         ax = plt.subplot(1, 4, i + 1)
+#         plt.tight_layout()
+#         ax.set_title('Sample #{}'.format(i))
+#         ax.axis('off')
+#         display(sample['image'])
+#         
+#         if i == 3:
+#             plt.show()
+#             break
+# =============================================================================
 
     
     print('end of main')
