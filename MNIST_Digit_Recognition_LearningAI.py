@@ -20,11 +20,15 @@ from torch import nn, optim
 # Normalize transform normalizes the images with the mean and standard deviation that go in ## HOW TO PICK MEAN AND STD
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
 
+
+
 # downloading dataset for training and validating
 # shuffling the dataset and applying the transforms that we previously defined
 ### HOW TO ADAPT THIS TO OUR PROGRAM?
 trainset = datasets.MNIST('/nfs/unixspace/linux/accounts/student/a/ajv012/DR', download=True, train=True, transform=transform)
 valset = datasets.MNIST('/nfs/unixspace/linux/accounts/student/a/ajv012/DR', download=True, train=False, transform=transform)
+
+# don't need to adapt this, we alrwady have a datset object
 
 # create dataloader objects for the training and validating datasets so that you can create batches, shuffle
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
