@@ -130,7 +130,7 @@ class Normalize(object):
     def __call__(self, sample):
         image = sample['image']
         image_norm =  image / np.linalg.norm(image)
-        return {'image': image, 'd': sample['d']}
+        return {'image': image_norm, 'd': sample['d']}
         
 
 def display(sample_batched):
