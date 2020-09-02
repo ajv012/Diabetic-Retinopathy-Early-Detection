@@ -12,18 +12,16 @@ import os
 import torch
 import pandas as pd
 from skimage import io, transform
-import numpy as np
 import matplotlib.pyplot as plt 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
-from sklearn.preprocessing import normalize
 
 class DRDataset(Dataset):
     '''
     Data loader for the DR dataset
     '''
     
-    def __init__(self, csv_file, root_dir, transform = None):
+    def __init__(self, csv, img_dir, transform = None):
         '''
         
 
@@ -31,7 +29,7 @@ class DRDataset(Dataset):
         ----------
         csv_file : string
             directory to the csv file with image ids and diagnosis.
-        root_dir : string
+        img_dir : string
             directory with all the images.
 
         Returns
@@ -39,8 +37,8 @@ class DRDataset(Dataset):
         None.
 
         '''
-        self.image_ids = pd.read_csv(csv_file)
-        self.root_dir = root_dir
+        self.image_ids = pd.read_csv(csv)
+        self.img_dir = img_dir
         self.transform = transform
         
     def __len__(self):
@@ -72,7 +70,7 @@ class DRDataset(Dataset):
         
         # acquire image
         curr_image_name = self.image_ids.iloc[idx, 0] + '.png'
-        img_path = os.path.join(self.root_dir, curr_image_name)
+        img_path = os.path.join(self.img_dir, curr_image_name)
         
         # read image
         image = io.imread(img_path)
@@ -121,16 +119,21 @@ class Rescale(object):
         new_h, new_w = self.output_size
         
         img = transform.resize(image, (new_h, new_w))
+        
 
         return {'image': img, 'd': sample['d']}
     
 class Normalize(object):
+    '''
+    Performs a global centering of the pixel values, which are already normalized?
+    '''
     
     
     def __call__(self, sample):
         image = sample['image']
-        image_norm =  image / np.linalg.norm(image)
-        return {'image': image_norm, 'd': sample['d']}
+        image =  image - image.mean()
+        image = image / image.std()
+        return {'image': image, 'd': sample['d']}
         
 
 def display(sample_batched):
@@ -149,34 +152,39 @@ def display(sample_batched):
     images_batch = sample_batched['image']
     
     grid = utils.make_grid(images_batch)
-    plt.imshow(grid.numpy().transpose((1, 2, 0)))
+    toshow = grid.numpy()
+    toshow = toshow - toshow.min()
+    toshow = toshow/toshow.max()
+    plt.imshow(toshow.transpose((1, 2, 0)))
     
     plt.title('Batch from dataloader')
     
 
     
-csv_file='/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Images/train.csv'
-root_dir='/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Images'
-composed =  transforms.Compose([Rescale(256), ToTensor(), Normalize()]) # transforms.Compose([transforms.Resize(256,256), transforms.ToTensor(), transforms.Normalize((0.13), (0.38))])
+def load_data(csv, img_dir, batch):
+# csv = '/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Train/train.csv'
+# root = '/nfs/unixspace/linux/accounts/student/a/ajv012/DR/Train'
+# batch = 32
 
-
-
-DR_dataset = DRDataset(csv_file, root_dir, composed)
-
-dataloader = DataLoader(DR_dataset, batch_size=5, shuffle=True, num_workers=4)  
-
-for i_batch, sample_batched in enumerate(dataloader):
-    print(i_batch, sample_batched['image'].size(), sample_batched['d'])
-
-    plt.figure()
-    display(sample_batched)
-    plt.axis('off')
-    plt.ioff()
-    plt.show()
+    composed =  transforms.Compose([Rescale(256), ToTensor(), Normalize()]) # transforms.Compose([transforms.Resize(256,256), transforms.ToTensor(), transforms.Normalize((0.13), (0.38))])
     
-print('done')
+    DR_dataset = DRDataset(csv, img_dir, composed)
 
-# End goal: be able to apply transforms.Compose([transforms.Resize(256,256), transforms.ToTensor(), transforms.Normalize((0.13), (0.38))])
+    dataloader = DataLoader(DR_dataset, batch, shuffle = True, num_workers = 4)  
+        
+    return dataloader
+    
+    # for i_batch, sample_batched in enumerate(dataloader):
+    #     print(i_batch, sample_batched['image'].size(), sample_batched['d'])
+    
+    #     plt.figure()
+    #     display(sample_batched)
+    #     plt.axis('off')
+    #     plt.ioff()
+    #     plt.show()
+        
+# load_data()
+            
     
 
         
